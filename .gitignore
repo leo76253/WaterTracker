@@ -1,0 +1,28 @@
+# .NET
+bin/
+obj/
+lib/
+*.user
+*.suo
+*.userprefs
+*.csproj.user
+*.dbmdl
+*.dll
+*.exe
+*.pdb
+*.nupkg
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+appsettings.*.local.json
+*.user secrets
