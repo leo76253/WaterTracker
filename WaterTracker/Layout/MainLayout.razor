@@ -1,16 +1,33 @@
-﻿@inherits LayoutComponentBase
+﻿@using WaterTracker.Services
+@inherits LayoutComponentBase
+@inject AuthService AuthService
+@inject NavigationManager Navigation
 <div class="page">
     <div class="sidebar">
         <NavMenu />
     </div>
-
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        <div class="top-row px-4 auth">
+            <AuthorizeView>
+                <Authorized>
+                    <span>@context.User.Identity?.Name</span>
+                    <button class="btn btn-outline-secondary btn-sm ms-2" @onclick="Logout">Logout</button>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="login" class="btn btn-outline-primary btn-sm">Login</a>
+                    <a href="register" class="btn btn-primary btn-sm ms-2">Register</a>
+                </NotAuthorized>
+            </AuthorizeView>
         </div>
-
         <article class="content px-4">
             @Body
         </article>
     </main>
 </div>
+@code {
+    private void Logout()
+    {
+        AuthService.Logout();
+        Navigation.NavigateTo("login");
+    }
+}
