@@ -14,11 +14,14 @@ builder.Services.AddScoped<TokenStorageService>();
 builder.Services.AddScoped<AuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthStateProvider>());
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<WaterIntakeService>();
 builder.Services.AddTransient<TokenMessageHandler>();
 builder.Services.AddScoped(sp =>
 {
     var handler = sp.GetRequiredService<TokenMessageHandler>();
+    handler.InnerHandler = new HttpClientHandler();
     return new HttpClient(handler) { BaseAddress = new Uri(apiUrl) };
 });
+builder.Services.AddAuthorizationCore();
 
 await builder.Build().RunAsync();

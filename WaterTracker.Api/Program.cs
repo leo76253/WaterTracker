@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using OpenIddict.Validation.AspNetCore;
+using Swashbuckle.AspNetCore.SwaggerGen;
 using WaterTracker.Api.Data;
 using WaterTracker.Api.Models;
 using WaterTracker.Api.Services;
@@ -11,8 +13,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(connectionString));
+if (builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseInMemoryDatabase("WaterTrackerTesting"));
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlServer(connectionString));
+}
 
 builder.Services.AddIdentity<Customer, IdentityRole>(options =>
 {
@@ -36,6 +46,9 @@ builder.Services.AddOpenIddict()
     {
         options.SetTokenEndpointUris("/connect/token");
 
+        if (builder.Environment.IsDevelopment())
+            options.SetIssuer(new Uri("https://localhost:7184"));
+
         options.AllowPasswordFlow()
                .SetAccessTokenLifetime(TimeSpan.FromHours(24));
 
@@ -45,7 +58,7 @@ builder.Services.AddOpenIddict()
         var aspNetCoreOptions = options.UseAspNetCore()
                                         .EnableTokenEndpointPassthrough();
 
-        if (builder.Environment.IsDevelopment())
+        if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
             aspNetCoreOptions.DisableTransportSecurityRequirement();
     })
     .AddValidation(options =>
@@ -53,6 +66,13 @@ builder.Services.AddOpenIddict()
         options.UseLocalServer();
         options.UseAspNetCore();
     });
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+    options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+});
 
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IWaterIntakeService, WaterIntakeService>();
@@ -73,17 +93,15 @@ builder.Services.AddSwaggerGen(options =>
     };
     options.AddSecurityDefinition("Bearer", securityScheme);
 
-    options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
-    {
-        { new OpenApiSecuritySchemeReference("Bearer"), [] }
-    });
+    options.OperationFilter<FormDataOperationFilter>();
+    options.DocumentFilter<BearerSecurityFilter>();
 });
 
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("https://localhost:7124")
+        policy.WithOrigins("https://localhost:7124", "http://localhost:5064")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -101,7 +119,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Skip HTTPS redirect in development - it strips Authorization headers from Swagger UI requests
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
+
 app.UseCors();
 app.UseRouting();
 app.UseAuthentication();
@@ -129,3 +150,35 @@ app.UseExceptionHandler(exceptionHandlerApp =>
 });
 
 app.Run();
+
+public class FormDataOperationFilter : IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        if (context.ApiDescription.RelativePath is string path
+            && path.Contains("connect/token")
+            && operation.RequestBody?.Content.ContainsKey("multipart/form-data") == true)
+        {
+            operation.RequestBody.Content["application/x-www-form-urlencoded"] =
+                operation.RequestBody.Content["multipart/form-data"];
+            operation.RequestBody.Content.Remove("multipart/form-data");
+        }
+    }
+}
+
+public class BearerSecurityFilter : IDocumentFilter
+{
+    public void Apply(OpenApiDocument document, DocumentFilterContext context)
+    {
+        document.Security ??= [];
+
+        var schemeRef = new OpenApiSecuritySchemeReference("Bearer", document, null);
+
+        document.Security.Add(new OpenApiSecurityRequirement
+        {
+            { schemeRef, [] }
+        });
+    }
+}
+
+

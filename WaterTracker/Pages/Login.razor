@@ -1,0 +1,70 @@
+﻿@page "/login"
+@using WaterTracker.Services
+
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Login</PageTitle>
+
+
+<div class="d-flex align-items-center justify-content-center min-vh-100">
+    <div class="bg-light border rounded-2 p-3 w-100" style="max-width: 640px;">
+        <h1>Login</h1>
+        <EditForm Model="@loginFormModel" OnValidSubmit="@HandleLogin">
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <InputText id="email" class="form-control" disabled="@isSubmitting" @bind-Value="loginFormModel.Email" type="email" required />
+            </div>
+            <div class="mb-4">
+                <label for="password" class="form-label">Password</label>
+                <InputText id="password" class="form-control" disabled="@isSubmitting" @bind-Value="loginFormModel.Password" type="password"
+                           required />
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <span>Signing in...</span>
+                    }
+                    else
+                    {
+                        <span>Sign in </span>
+                    }
+                </button>
+                <a href="register" class="btn btn-link">Don't have an account? Register here</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+
+@code {
+    private LoginFormModel loginFormModel = new LoginFormModel();
+    private string? error;
+    private bool isSubmitting = false;
+
+    private async Task HandleLogin()
+    {
+        isSubmitting = true;
+        bool success = await AuthService.LoginAsync(loginFormModel.Email, loginFormModel.Password);
+        if (success)
+        {
+            Console.WriteLine("Login successful");
+            Navigation.NavigateTo("/dashboard");
+        }
+        else
+        {
+            Console.WriteLine("Login failed");
+            error = "Invalid email or password";
+        }
+        isSubmitting = false;
+    }
+
+    private class LoginFormModel
+    {
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

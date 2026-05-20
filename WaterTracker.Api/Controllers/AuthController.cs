@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using OpenIddict.Abstractions;
 using WaterTracker.Api.Dtos;
 using WaterTracker.Api.Models;
 using WaterTracker.Api.Services.Interfaces;
@@ -26,9 +27,12 @@ namespace WaterTracker.Api.Controllers
         [HttpGet("me")]
         public async Task<IActionResult> Me()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var user = await userManager.FindByIdAsync(userId!);
-            if (user is null) return NotFound();
+            var userId = User.FindFirstValue(OpenIddictConstants.Claims.Subject)
+                         ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var user = await userManager.FindByIdAsync(userId);
 
             return Ok(new
             {

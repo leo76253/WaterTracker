@@ -13,13 +13,18 @@ namespace WaterTracker.Services
         {
             if (!tokenStorageService.IsAuthenticated)
             {
-                var anonymous = new ClaimsPrincipal(new ClaimsIdentity());
-                return await Task.FromResult(new AuthenticationState(anonymous));
+                await tokenStorageService.LoadFromSessionStorageAsync();
+            }
+
+            if (!tokenStorageService.IsAuthenticated)
+            {
+                return await Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity())));
             }
 
             var claims = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, tokenStorageService.CustomerId ?? ""),
+                new(ClaimTypes.Name, tokenStorageService.Email ?? ""),
                 new(ClaimTypes.Email, tokenStorageService.Email ?? "")
             };
 

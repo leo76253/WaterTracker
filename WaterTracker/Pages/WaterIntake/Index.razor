@@ -1,0 +1,156 @@
+@page "/wi/{Id:guid?}"
+@attribute [Authorize]
+@using WaterTracker.Services
+@inject WaterIntakeService WaterIntakeService
+@inject NavigationManager NavigationManager
+
+<PageTitle>@(isEditMode ? "Edit" : "Add") Water Intake</PageTitle>
+
+<h1>@(isEditMode ? "Edit" : "Add") Water Intake</h1>
+
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="amount" class="form-label">Amount (L)</label>
+                <input id="amount" type="number" class="form-control" step="0.1" min="0" @bind="amountText" @bind:event="oninput" />
+            </div>
+            <div class="mb-3">
+                <label for="date" class="form-label">Date</label>
+                <input id="date" type="datetime-local" class="form-control" value="@dateString" @onchange="OnDateChanged" />
+            </div>
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="alert alert-danger">@error</div>
+            }
+            <div class="d-flex gap-2">
+                @if (Id == null)
+                {
+                    <button class="btn btn-primary" @onclick="() => SubmitAsync()" disabled="@submitting">
+                        @(submitting ? "Creating..." : "Create")
+                    </button>
+                    <button class="btn btn-primary" @onclick="SubmitMultiAsync" disabled="@submitting">
+                        @(submitting ? "Creating..." : "Create Multiple")
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-primary" @onclick="() => SubmitAsync()" disabled="@submitting">
+                        @(submitting ? "Saving..." : "Save")
+                    </button>
+                }
+                <button class="btn btn-outline-secondary" @onclick="CancelAsync">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private bool isEditMode;
+    private bool loading = true;
+    private bool submitting;
+    private string amountText = "0";
+    private string dateString = DefaultDateString();
+    private string? error;
+
+    private static string DefaultDateString() =>
+        DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+
+    private void OnDateChanged(ChangeEventArgs e)
+    {
+        dateString = e.Value?.ToString() ?? DefaultDateString();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        isEditMode = Id.HasValue;
+
+        if (isEditMode)
+        {
+            var intake = await WaterIntakeService.GetByIdAsync(Id!.Value);
+            if (intake is null)
+            {
+                error = "Water intake not found.";
+                loading = false;
+                return;
+            }
+            amountText = intake.Amount.ToString("F1");
+            dateString = intake.Date.ToString("yyyy-MM-ddTHH:mm");
+        }
+
+        loading = false;
+    }
+
+    private async Task SubmitAsync(bool navigate = true)
+    {
+        error = null;
+
+        if (!double.TryParse(amountText, out var amount) || amount < 0)
+        {
+            error = "Amount must be 0 or greater.";
+            return;
+        }
+
+
+        if (!DateTime.TryParse(dateString, out var parsed) && parsed < DateTime.Now)
+        {
+            error = "Invalid date.";
+            return;
+        }
+
+        DateTime date = parsed.ToUniversalTime();
+        submitting = true;
+
+        if (isEditMode)
+        {
+            var result = await WaterIntakeService.UpdateAsync(Id!.Value, new UpdateWaterIntakeRequest(amount, date));
+            if (result is null)
+            {
+                error = "Failed to update water intake.";
+                submitting = false;
+                return;
+            }
+
+            NavigationManager.NavigateTo("/dashboard");
+        }
+        else
+        {
+            var result = await WaterIntakeService.CreateAsync(new CreateWaterIntakeRequest(amount, date));
+            if (result is null)
+            {
+                error = "Failed to create water intake.";
+                submitting = false;
+                return;
+            }
+
+            if (navigate)
+                NavigationManager.NavigateTo("/dashboard");
+        }
+
+        submitting = false;
+    }
+
+    private async Task SubmitMultiAsync()
+    {
+        await SubmitAsync(navigate: false);
+        if (error is not null) return;
+
+        amountText = "0";
+        dateString = DefaultDateString();
+    }
+
+    private async Task CancelAsync()
+    {
+        NavigationManager.NavigateTo("/dashboard");
+    }
+}

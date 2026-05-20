@@ -1,4 +1,7 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using WaterTracker.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">WaterTracker</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -8,12 +11,51 @@
 </div>
 
 <div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    <AuthorizeView>
+        <Authorized>
+            <div class="d-flex flex-column justify-content-between h-100">
+                <nav class="nav flex-column">
+                    @* <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill" aria-hidden="true"></span> Home
+                    </NavLink>
+                </div> *@
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="/dashboard">
+                            <span class="bi bi-toggles" aria-hidden="true"></span> Dashboard
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="/profile">
+                            <span class="bi bi-person" aria-hidden="true"></span> Profile
+                        </NavLink>
+                    </div>
+                </nav>
+                <div class=" px-3 py-2 text-light small">
+                    <span>@context.User.Identity?.Name</span>
+                    <button class="btn btn-outline-secondary btn-sm ms-2 mb-2" @onclick="Logout">Logout</button>
+                    @* Todo: Change to dynamic version number *@
+                    <p class="text-black small">Water Tracker V1.0.0 - Leo Bracken</p>
+                </div>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <nav class="nav flex-column">
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/login">
+                        <span class="bi bi-box-arrow-in-left" aria-hidden="true"></span> Login
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/register">
+                        <span class="bi bi-person-plus" aria-hidden="true"></span> Register
+                    </NavLink>
+                </div>
+            </nav>
+        </NotAuthorized>
+    </AuthorizeView>
+
+    @*
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="counter">
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
@@ -23,8 +65,7 @@
             <NavLink class="nav-link" href="weather">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
             </NavLink>
-        </div>
-    </nav>
+        </div> *@
 </div>
 
 @code {
@@ -35,5 +76,11 @@
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.Logout();
+        Navigation.NavigateTo("/login");
     }
 }

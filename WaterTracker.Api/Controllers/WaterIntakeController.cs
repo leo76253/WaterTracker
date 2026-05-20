@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using OpenIddict.Abstractions;
 using WaterTracker.Api.Dtos;
 using WaterTracker.Api.Services.Interfaces;
 using static WaterTracker.Api.Dtos.WaterIntakeDtos;
@@ -16,9 +17,9 @@ namespace WaterTracker.Api.Controllers
     [Authorize]
     public class WaterIntakeController(IWaterIntakeService waterIntakeService) : ControllerBase
     {
-        private string GetUserId() =>
-            User.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? throw new UnauthorizedAccessException();
+        private string? GetUserId() =>
+            User.FindFirstValue(OpenIddictConstants.Claims.Subject)
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
@@ -41,9 +42,7 @@ namespace WaterTracker.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateWaterIntakeRequest waterIntake)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId is null) return Unauthorized();
-
+            var userId = GetUserId();
             var result = await waterIntakeService.CreateWaterIntakeAsync(waterIntake, userId);
             if (!result.Success)
                 return BadRequest(new { error = result.Error });
@@ -53,8 +52,7 @@ namespace WaterTracker.Api.Controllers
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWaterIntakeRequest waterIntake)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId is null) return Unauthorized();
+            var userId = GetUserId();
 
             var result = await waterIntakeService.UpdateWaterIntakeAsync(id, waterIntake, userId);
             if (!result.Success)
@@ -65,8 +63,7 @@ namespace WaterTracker.Api.Controllers
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId is null) return Unauthorized();
+            var userId = GetUserId();
 
             var result = await waterIntakeService.DeleteWaterIntakeAsync(id, userId);
             if (!result.Success)
